@@ -1,6 +1,6 @@
 #!/bin/ksh
 #
-# startMonget.ksh -d <dbname> [-s <interval sec>] [-c <count>] [-o <output directory>] [-f <SQL file>] 
+# startMonGetDB2_ver1.ksh -d <dbname> [-s <interval sec>] [-c <count>] [-o <output directory>] [-f <SQL file>] 
 #
 ###############################################################################
 ###############################################################
