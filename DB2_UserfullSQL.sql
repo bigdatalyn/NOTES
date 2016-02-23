@@ -202,7 +202,12 @@ VIKRAM.ROOMS,VIKRAM.STUDENTS IMMEDIATE CHECKED;
 The only limitation is the size of the SET command – based on this script it cannot be larger that 3900 characters. 
 
 
-15.
+15.db2pd 命令中的参数 -ruStatus 显示 DB2 pureScale 实例中的修补程序包更新的状态。
+
+http://www.ibm.com/developerworks/cn/data/library/techarticle/dm-1506db2pd-fixpack-progress/
+
+
+
 
 
 
