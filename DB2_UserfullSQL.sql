@@ -2,7 +2,9 @@
 
 1.1.使用一条命令即可查看表空间的状态信息，格式化输出 db2 list tablespaces show detail 
 
-LANG=en_US;db2 termiante; db2 connect to SAMPLE;db2 list tablespaces show detail | while read line  ; do w1=$(echo "$line" | cut -d" " -f1); if [ "$w1" ==  "Tablespace" ];then tabid=$(echo "$line" | cut -d'=' -f2);fi; if [ "$w1" ==  "Name" ];then   name=$(echo "$line" | cut -d'=' -f2); fi; if [ "$w1" ==  "Type" ];then  type=$(echo "$line" | cut -d'=' -f2);type1=$(echo "$type" | awk '{print $1}'); if [ "$type1" == "System" ];then Ttype='SMS';  else Ttype='DMS'; fi;  fi; if [ "$w1" == "Contents" ];then contents=$(echo "$line" | cut -d'=' -f2); fi; if  [ "$w1" ==  "State" ];then state=$(echo "$line" | cut -d'=' -f2);fi; if [ "$w1" == "Total" ];then   total=$(echo "$line" | cut -d'=' -f2);fi;if [ "$w1" == "Used" ]; then used=$(echo "$line" | cut -d'=' -f2); fi;  if [ "$w1" ==  "Free" ]; then free=$(echo "$line" | cut -d'=' -f2); fi; if [ "$w1" == "Page" ];then page=$(echo "$line" | cut -d'=' -f2); printf "%-25s%-5s%-5s%-5s%-10s%-20s%-20s%-30s\n"  $name $tabid $page $Ttype $state $total $used; fi  done
+LANG=en_US;db2 terminate; db2 connect to SAMPLE;
+
+db2 list tablespaces show detail | while read line  ; do w1=$(echo "$line" | cut -d" " -f1); if [ "$w1" ==  "Tablespace" ];then tabid=$(echo "$line" | cut -d'=' -f2);fi; if [ "$w1" ==  "Name" ];then   name=$(echo "$line" | cut -d'=' -f2); fi; if [ "$w1" ==  "Type" ];then  type=$(echo "$line" | cut -d'=' -f2);type1=$(echo "$type" | awk '{print $1}'); if [ "$type1" == "System" ];then Ttype='SMS';  else Ttype='DMS'; fi;  fi; if [ "$w1" == "Contents" ];then contents=$(echo "$line" | cut -d'=' -f2); fi; if  [ "$w1" ==  "State" ];then state=$(echo "$line" | cut -d'=' -f2);fi; if [ "$w1" == "Total" ];then   total=$(echo "$line" | cut -d'=' -f2);fi;if [ "$w1" == "Used" ]; then used=$(echo "$line" | cut -d'=' -f2); fi;  if [ "$w1" ==  "Free" ]; then free=$(echo "$line" | cut -d'=' -f2); fi; if [ "$w1" == "Page" ];then page=$(echo "$line" | cut -d'=' -f2); printf "%-25s%-5s%-5s%-5s%-10s%-20s%-20s%-30s\n"  $name $tabid $page $Ttype $state $total $used; fi  done
 
 SAMPLE:数据库名
 
