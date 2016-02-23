@@ -77,6 +77,39 @@ alter tablespace CLOBS_TSP extend (all 30M)
 
 db2 "SELECT SUBSTR(TabSchema,1,15), TabName, TabType, (Data_Object_P_Size + Index_Object_P_Size + Long_Object_P_Size + Lob_Object_P_Size + Xml_Object_P_Size)/1024 as Total_P_Size_MB FROM SysIbmAdm.AdminTabInfo ORDER BY Total_P_Size_MB desc" >table_size.log
 
+http://db2commerce.com/2015/02/05/db2-administrative-sql-cookbook-listing-tables-and-current-size/
+
+v10.5
+
+select  substr(t.tabschema,1,18) as tabschema
+        , substr(t.tabname,1,40) as tabname
+        , (COL_OBJECT_P_SIZE + DATA_OBJECT_P_SIZE + INDEX_OBJECT_P_SIZE + LONG_OBJECT_P_SIZE + LOB_OBJECT_P_SIZE + XML_OBJECT_P_SIZE)/1024 as tab_size_mb
+        , tableorg
+from    syscat.tables t
+        join sysibmadm.admintabinfo ati
+                on t.tabname=ati.tabname
+                and t.tabschema=ati.tabschema
+where   t.type='T'
+        and t.tabschema not like ('SYS%')
+order by 3 desc
+with ur
+
+v9.7
+
+select  substr(t.tabschema,1,18) as tabschema
+        , substr(t.tabname,1,40) as tabname
+        , (DATA_OBJECT_P_SIZE + INDEX_OBJECT_P_SIZE)/1024 as tab_size_mb
+from    syscat.tables t
+        join sysibmadm.admintabinfo ati
+                on t.tabname=ati.tabname
+                and t.tabschema=ati.tabschema
+where   t.type='T'
+        and t.tabschema not like ('SYS%')
+order by 3 desc
+with ur
+
+
+
 7.查询存储过程的内容
 
 db2 " select PROCNAME,text from syscat.procedures where PROCNAME = 'SP_A_TSKRES'"
@@ -206,6 +239,69 @@ The only limitation is the size of the SET command – based on this script it c
 
 http://www.ibm.com/developerworks/cn/data/library/techarticle/dm-1506db2pd-fixpack-progress/
 
+16.DB2 Event Monitor使用与查询
+
+首先创建一个目录用于存放事件监控，例：
+[db2inst1@myhost ~]$ mkdir emondir
+
+创建一个sql语句的事件监控
+[db2inst1@myhost ~]$ db2 "create event monitor temon1 for statements write to file '/home/db2inst1/emondir'"
+
+启动temon1
+[db2inst1@myhost ~]$ db2 "set event monitor temon1 state 1"
+
+查看事件监控生成的内容：
+[db2inst1@myhost ~]$db2evmon -path emondir
+
+查看事件监控启动情况：
+[db2inst1@myhost ~]$db2 "select evmonname, event_mon_state(evmonname) from syscat.eventmonitors
+
+关闭temon1
+[db2inst1@myhost ~]$ db2 "set event monitor temon1 state 1"
+
+删除temon1
+[db2inst1@myhost ~]$ db2 "drop event monitor temon1'"
+
+
+16.查询不常用的index（v9.7/v10.1）
+
+db2 "select  i.lastused,
+        substr(t.tabschema,1,20) as tabschema,
+        substr(t.tabname,1,30) as tabname,
+        substr(i.indschema,1,20) as indschema,
+        substr(indname,1,40) as indname,
+        substr(colnames,1,60) as colnames,
+        bigint(fullkeycard)as fullkeycard,
+        bigint(card) as table_card,
+        case
+          when card > 0 then decimal(float(fullkeycard)/float(card),5,2)
+          else -1
+        end as pct_card,
+        mi.index_scans,
+        mt.table_scans,
+        mi.index_only_scans,
+        mi.page_allocations,
+        volatile
+from    syscat.indexes i join syscat.tables t
+        on i.tabname=t.tabname and i.tabschema=t.tabschema
+        join table(mon_get_index('','',-2)) as mi on i.iid=mi.iid and i.tabschema=mi.tabschema and i.tabname = mi.tabname
+        join table(mon_get_table('','',-2)) as mt on i.tabschema=mt.tabschema and i.tabname=mt.tabname
+where
+        indextype not in ('BLOK', 'DIM')
+        and t.tabschema not like 'SYS%'
+        and uniquerule='D'
+        and not exists (select 1
+                from syscat.references r join syscat.keycoluse k
+                        on r.tabschema=k.tabschema and r.tabname=k.tabname
+                where t.tabschema=r.tabschema
+                        and r.tabname = t.tabname
+                        and k.colname in (      select colname
+                                        from syscat.indexcoluse as ic
+                                        where ic.indschema=i.indschema
+                                        and ic.indname=i.indname))
+        and i.lastused < current timestamp - 30 days
+order by mi.index_scans, i.lastused, fullkeycard, card
+with ur"
 
 
 
