@@ -172,6 +172,40 @@ Apply side:
 
 db2 "select APPLY_QUAL, SET_NAME, SOURCE_ALIAS, TARGET_ALIAS, ACTIVATE, STATUS, LASTRUN, LASTSUCCESS, SYNCHTIME, SLEEP_MINUTES,REFRESH_TYPE from ASN.IBMSNAP_SUBS_SET"
 
+14.一致性检查脚本
+
+DB21034E  The command was processed as an SQL statement because it was not a
+valid Command Line Processor command.  During SQL processing it returned:
+SQL3608N  Cannot check a dependent table "VIKRAM.REGISTERED_STUDENTS" using
+the SET INTEGRITY statement while the parent table or underlying table
+"VIKRAM.STUDENTS" is in the Set Integrity Pending state or if it will be put
+into the Set Integrity Pending state by the SET INTEGRITY statement.
+SQLSTATE=428A8
+
+
+db2 connect to sample
+db2 -tx +w "with gen(tabname, seq) as( select rtrim(tabschema) || '.' || rtrim(tabname)
+as tabname, row_number() over (partition by status) as seq
+from  syscat.tables
+WHERE status='C' ),r(a, seq1) as (select CAST(tabname as VARCHAR(3900)), seq
+from  gen where seq=1 union all select r.a || ','|| rtrim(gen.tabname), gen.seq
+from gen , r where (r.seq1+1)=gen.seq ), r1 as (select a, seq1 from r)
+select 'SET INTEGRITY FOR ' || a || ' IMMEDIATE CHECKED;' from r1
+where seq1=(select max(seq1) from r1)" > db2FixCheckPending.sql
+db2 -tvf db2FixCheckPending.sql
+
+A sample output:
+
+SET INTEGRITY FOR VIKRAM.ERROR_STACKS,VIKRAM.CLASSES,VIKRAM.CALL_STACKS,VIKRAM.ERRORS,VIKRAM.REGISTERED_STUDENTS,
+VIKRAM.ROOMS,VIKRAM.STUDENTS IMMEDIATE CHECKED;
+
+The only limitation is the size of the SET command – based on this script it cannot be larger that 3900 characters. 
+
+
+15.
+
+
+
 
 
 
