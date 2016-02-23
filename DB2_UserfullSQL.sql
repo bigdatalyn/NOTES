@@ -134,7 +134,44 @@ db2 "select substr(GRANTOR,1,30), GRANTORTYPE, substr(GRANTEE,1,30), GRANTEETYPE
 
 db2 "select substr(GRANTOR,1,30), GRANTORTYPE, substr(GRANTEE,1,30), GRANTEETYPE, substr(TABSCHEMA,1,30), substr(TABNAME,1,30), CONTROLAUTH from syscat.tabauth where GRANTEE='DB2INST1'"
 
-11.
+11.查看日志归档情况
+
+db2 "SELECT DATE(CAST(START_TIME as TIMESTAMP)) as DATE,
+
+count(*) as NUMBER_OF_LOGS_PER_DAY,
+
+(count(*)*23.4375) as AMOUNT_LOGS_DAY_MB,
+
+DBPARTITIONNUM as DBPART
+
+FROM SYSIBMADM.DB_HISTORY
+
+WHERE operation = 'X' -- Archive logs
+
+and OPERATIONTYPE = '1' -- 1 = first log archive method
+
+and TIMESTAMP(END_TIME) > CURRENT_TIMESTAMP - 10 DAYS
+
+GROUP BY DATE(CAST(START_TIME as TIMESTAMP)) , DBPARTITIONNUM
+
+ORDER BY DATE DESC "
+
+12.查看过去24小时是否进行过备份
+
+db2 "select substr(comment,1,30) as comment, timestamp(start_time) as start_time, timestamp(end_time) as end_time, substr(firstlog,1,25) as firstlog, substr(lastlog,1,25) as lastlog, seqnum, substr(location,1,50) as location from sysibmadm.db_history where operation = 'B' and timestamp(start_time) > current_timestamp - 24 hours and sqlcode is null "
+
+13.SQL复制同步情况
+
+Dprop check
+
+Capture side:
+
+db2 "SELECT SYNCHTIME, CURRENT TIMESTAMP AS CURRENT_TIMESTAMP FROM ASN.IBMSNAP_REGISTER WHERE GLOBAL_RECORD='Y' with ur"
+
+Apply side:
+
+db2 "select APPLY_QUAL, SET_NAME, SOURCE_ALIAS, TARGET_ALIAS, ACTIVATE, STATUS, LASTRUN, LASTSUCCESS, SYNCHTIME, SLEEP_MINUTES,REFRESH_TYPE from ASN.IBMSNAP_SUBS_SET"
+
 
 
 
