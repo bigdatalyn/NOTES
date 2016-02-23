@@ -1,4 +1,13 @@
 
+在使用 IBM DB2 时诊断损坏问题
+http://www.ibm.com/developerworks/cn/data/library/techarticle/dm-1208corruptiondb2/index.html
+
+How DB2 LUW uses CBITs and how to recover from CBIT errors
+http://www-01.ibm.com/support/docview.wss?rs=71&uid=swg21197191
+
+[DB2 LUW] 表スペース使用率の計測方法 (IM-11-00B)
+http://www-01.ibm.com/support/docview.wss?uid=jpn1J1004934
+
 db2dart:
 
 1.非正常关闭数据库的情况下，数据库处于 “不一致” 的状态，
@@ -68,7 +77,62 @@ BIGINT
 If a column of type CHAR and VARCHAR contains any binary data, or is defined with FOR BIT DATA, the /DDEL parameter generates the DEL file which contains the binary data. When you load data from the DEL file to the table using the LOAD command, ensure that you always specify the modified by delprioritychar option. When you insert data into the table from the DEL file using the IMPORT command, make sure that you always specify the modified by delprioritychar codepage=x option where x is the code page of the data in the input data set.
 
 
-5.
+5.修改归档日志第一次连接数据库时候出现backup pending
+
+
+以下、具体的な手順例です。
+
+1.
+ロギングモードを変更します。
+
+$ db2 update db cfg for testdb1 using logarchmeth1 disk:/work/test
+DB20000I  UPDATE DATABASE CONFIGURATION コマンドが正常に完了しました。
+
+2.
+この時点ではまだバックアップペンディングになっていません。
+
+$ db2 get db cfg for testdb1 |grep バックアップ・ペンディング
+ バックアップ・ペンディング                              = NO
+
+3. データベースへ接続を試みることによってバックアップ・ペンディングの
+フラグが立ちます。
+
+$ db2 connect to testdb1
+SQL1116N  データベース "TESTDB1" は BACKUP PENDING
+状態になっているため、そのデータベースへの接続、またはそのデータベース
+のアクティ
+ブ化は失敗しました。  SQLSTATE=57019
+
+$ db2 get db cfg for testdb1 |grep バックアップ・ペンディング
+ バックアップ・ペンディング                              = YES
+
+4. db2dart を実行し、バックアップ・ペンディングを解除します。
+========
+$ db2dart testdb1 /chst /what dbbp off
+
+                               IMPORTANT:
+   After resetting the database backup pending state, IBM no longer
+   guarantees data integrity or the referential integrity of the data.
+   To ensure the referential integrity of the data, all user tables
+   should be exported, the database dropped and recreated and all
+   user tables imported back into the new database.
+
+ Updated the log file header control file.
+         The requested DB2DART processing has completed successfully!
+                  Complete DB2DART report found in: TESTDB1.RPT
+========
+
+5. バックアップ・ペンディングが解消されていることを確認
+
+$ db2 get db cfg for testdb1 |grep バックアップ・ペンディング
+ バックアップ・ペンディング                              = NO
+
+<参考>
+db2dart - データベース分析およびレポート・ツール・コマンド
+http://www.ibm.com/support/knowledgecenter/SSEPGG_10.5.0/com.ibm.db2.luw.admin.cmd.doc/doc/r0003477.html?lang=ja
+
+
+
  
  
  
