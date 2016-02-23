@@ -128,6 +128,34 @@ where seq1=(select max(seq1) from r1)" > db2FixCheckPending.sql
 
 db2 -tvf db2FixCheckPending.sql
 
+
+http://db2commerce.com/2015/12/15/db2-load-utility-and-check-pending-states/
+
+if you have tables dependent on others, you might have a problem of ordering. If you have multiple dependecy trees you might have to iterate several times…
+
+Here’s some code snippet:
+##################################################
+db2 “connect to $1″;
+num=`db2 -x “select count(*) from syscat.tables where status = ‘C'”`;
+
+while [ ${num} -gt 0 ] ; do
+db2 -x “select ‘SET INTEGRITY FOR ‘ || rtrim(char(tabschema, 128)) || ‘.’ || rtrim(char(tabname, 128)) || ‘ IMMEDIATE CHECKED;’
+from syscat.tables where status = ‘C’ order by parents, children” > ${db2_si_cmd_file};
+db2 -tvf ${db2_si_cmd_file} -z ${db2_si_log_file};
+
+prev_num=${num};
+num=`db2 -x “select count(*) from syscat.tables where status = ‘C'”`;
+
+if [ ${num} -gt 0 ] ; then
+echo “The INTEGRITY for the following tables could not be set: “;
+db2 -x “select rtrim(char(tabschema, 128)) || ‘.’ || rtrim(char(tabname, 128)) from syscat.tables where status = ‘C'”;
+fi;
+done;
+
+db2 “connect reset”;
+##################################################
+
+
 9.查看用户权限
 
 db2 " SELECT SUBSTR(GRANTOR, 1, 10) AS GRANTOR, -- Grantor of the authority
