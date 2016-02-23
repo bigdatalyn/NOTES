@@ -480,7 +480,13 @@ db2 get db cfg |find /i "路径"
 df -k xxxx(路径)
 
 
-18.
+18.设置为归档日志，第一次连接时候出现 Backup Pending的方法
+除了backup db xxx to /dev/null
+之后 也可以通过 db2dart命令来解除 backup pending状态，如下（数据库特别大的时候，花时间不想做backup）
+db2dart testdb1 /chst /what dbbp off
+
+19.
+
 
 
 
