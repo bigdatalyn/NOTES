@@ -1,0 +1,241 @@
+Knowledge Points:
+
+•  After db2 instance is up, following EDUs will be up : 
+      db2sysc, db2alarm, db2wdog, db2ipccm, db2tcpcm, db2licc ...
+   After db2 database is activated, following EDUs will be up : 
+      db2agent, db2pfchr, db2pclnr, db2dlock, db2stmm, db2wlmd ...
+
+•  Instance/Database EDUs :
+   *db2sysc, main system controller EDU, handles critical DB2 database server events, basically the 
+       figure after the proc name indicate the node number (eg. db2sysc 0, Node No. = 0)
+   *db2pfchr, for buffer pool prefetchers.
+   *db2pclnr, for buffer pool page cleaners.
+   *db2loggr, for manipulating log files to handle transaction processing and recovery.
+   *db2loggw, for writing log records to the log files.
+   *db2logts, tracks which table spaces have log records in which log files. This information is 
+       recorded in the DB2TSCHG.HIS file in the database directory.  It is used to speed up the 
+       forward phase of table space rollforward recovery. 
+   *db2dlock, for deadlock detection.
+   *db2stmm, for the self-tuning memory feature
+   *db2lfr, for log file readers that processes individual log files
+   *db2logmgr, for the log manager. Manages log files for a recoverable database
+   *db2wlmd, for automatic collection of workload management statistics
+   *db2fmp, The fenced mode process
+   *db2vend, This is a process to execute vendor code on behalf of an EDU, eg. execute the user-exit
+       program for log archiving 
+•  The number of processes db2pfchr can be specified by parameter NUM_IOSERVERS, the number of 
+      processes db2pclnr can be specified by parameter NUM_IOCLEANERS
+•  Self-tuning memory manager(STMM) simplifies the task of memory configuration by automatically 
+      setting values for memory configuration parameters and sizing buffer pools. The memory tuner 
+      dynamically distributes available memory resources among several memory consumers including 
+      sort memory, package cache, lock list memory, and buffer pools.
+•  To enable STMM, the DBM cfg SELF_TUNING_MEM should be turned on; to make a specific buffer pool 
+      take part in STMM, the buffer pool size should be AUTOMATIC
+•  When explicitly activate database or first connection connects to database, db2 allocate database 
+      global memory, eg. buffer pool, locklist, catalog cache, package cache, database heap etc.
+•  After a new empty database is created, db2 will create following default buffer pools: 
+   System 4k BP, System 8k BP, System 16k BP, System 32k BP, IBMDEFAULTBP
+
+•  There are two types of table space, both of which can be used in a single database:
+   a) System managed space, in which the operating system's file manager controls the storage space
+   b) Database managed space, in which the database manager controls the storage space
+•  A database must contain at least three types table spaces: one catalog table space, one or more 
+      user table spaces, and one or more temporary table spaces. The catalog tablespace can not 
+      be dropped
+•  A DMS tablespace container can be a file or raw device, A SMS tablespace container should be a 
+      directory
+•  DMS Container definitions can be modified by ALTER TABLESPACE:
+   i) Add new containers, Extend containers, Add New Stripe Set
+   ii) Reduce or Delete containers
+•  Following is the DMS tablespace limitions
+   Description 			4K page size  	8K page size 	16K page size 	32K page size 
+				limit		limit 		limit		limit 
+   --------------------------	------------	------------	-------------	-------------
+   Maximum size of a regular   	64 GB		128 GB		256 GB		512 GB
+   DMS table space
+   Maximum size of a large 	2048 GB		4096 GB		8192 GB		16384 GB
+   DMS table space
+
+•  When a regular DMS tablespace reach its limition, the tablespace can be converted to LARGE 
+      tablespace to extend the limition
+•  After a tablespace is converted to LARGE tablespace, it needs to do reorgnization for the 
+      tables/indexes in the tablespace
+•  Pages of table objects in a tablespace will be loaded into buffer pool, LOB/LF objects doesn't use 
+      buffer pool to cache data
+•  AUTORESIZE can be used to extend DSM containers on demand, SMS tablespace doesn't support AUTORESIZE
+•  A Redirected RESTORE with DMS tablespace must allocate containers with space equal to or greater 
+      than the HWM at the time of the BACKUP
+•  When adding containers to a tablespace or dropping from it, it will trigger DB2 to balance data 
+      between the containers
+•  When allocating space for a DMS tablespace, it'll allocate consecutive pages based on extend size, 
+      eg. if the extend size equals 8 and it needs 1 page, db2 will allocate 8 pages, not just a page
+•  An isolation level determines how data is locked or isolated from other processes while the data is 
+      being accessed.
+•  DB2 supports the following isolation levels:  
+      Repeatable Read(RR), Read Stability(RS), Cursor Stability(CS), Uncommitted Read(UR)
+•  Repeatable Read (RR) locks all the rows an application references within a unit of work.
+   Read Stability (RS) locks only those rows that an application retrieves within a unit of work.
+   Cursor Stability (CS) locks any row accessed by a transaction of an application while a cursor 
+      is positioned on a row (default level).
+   Uncommitted Read (UR) allows an application to access uncommitted changes of other transactions.
+
+•  The following table summarizes the different isolation levels in terms of their undesirable effects
+
+   Isolation Level 		Access to  		Nonrepeatable reads 	Phantom read 
+				uncommitted data				phenomenon 
+   ---------------------	------------------	--------------------	---------------
+   Repeatable Read (RR) 	Not possible 		Not possible 		Not possible 
+   Read Stability (RS) 		Not possible 		Not possible 		Possible 
+   Cursor Stability (CS) 	Not possible 		Possible 		Possible 
+   Uncommitted Read (UR) 	Possible 		Possible 		Possible 
+
+•  Following ways can be used to change the isolation level
+   a) CHANGE ISOLATION TO UR/CS/RS/RR
+   b) Bind static application packages with specific isolation level
+   c) SET ISOLATION UR/CS/RS/RR
+   d) SELECT/DELETE/UPDATE using clause "WITH UR/CS/RS/RR"
+•  On LUW platform, Possible lock object are as follows:  Row, Table, Tablespace
+•  SQL statement "LOCK TABLE" can lock the whole table and reduce the lock amount
+•  To capture deadlock event, you can create event monitor to record deadlock information 
+•  When the lock escalation frequently happens, LOCKLIST/MAXLOCKS needs to be optimized
+•  If application connection stay on LOCK-WAIT state, LOCKTIMEOUT needs to be optimized
+•  LOGPRIMARY and LOGSECOND indicates the number of log files used by the database, The number of 
+      primary and secondary log files must comply with the following: 
+   *If logsecond has a value of -1, logprimary <= 256.
+   *If logsecond does not have a value of -1, (logprimary + logsecond) <= 256
+
+•  The formula to calculate log utilization of the database is as below:
+   (current active log - first active log) / (LOGPRIMARY + LOGSECOND) * 100%
+•  Asynchronous page cleaners can be used to write out changed pages to disk, parameter chngpgs_thresh
+      will decide when pages need to write out.
+•  The database manager maintains (among others) information at the following levels: 
+   *Database manager	*Database	*Application	*Table		*Lock		*Table space
+   *Buffer pool	*Transaction	*Statement	*Subsection	*Dynamic SQL package
+•  Update dbm configuration with DFT_MON_XXX will keep the switch value and take effect to new sessions
+•  db2look can extract the Data Definition Language (DDL) statements of a database, and can retrieve 
+      statistics information of objects.
+   It can extracts DDL statements for the following database objects :
+   *Tables	*Triggers	*Views		*Indexes	*Materialized query tables (MQTs)
+   *Stored procedures	*Roles	*Sequences	*Check constraints	*Primary key constraints
+   *Referential integrity constraints	
+
+   Note: db2look just extract the DDL(Definition) of tables, but it doesn't dump data from tables
+
+•  To extract the object DDL, it requires SELECT privilege on the system catalog tables.
+•  Followings are some important options of db2look command:
+   -m	Generates the UPDATE statements that are required to replicate the statistics on tables, 
+           statistical views, columns, and indexes
+   -l	Generates DDL statements for the following database objects: tablespaces/database partition 
+           groups/buffer pools
+   -x	Generates authorization DDL statements such as GRANT statements
+•  db2mtrk provides complete report of memory status, for instances, databases, agents, and appl 
+   Followings are important options of the command:
+   -i   Show instance level memory, eg. monitor heap/audit buffer
+   -d	Show database level memory, eg. buffer pool/lock list/db heap etc.
+   -a	Show application memory usage
+   -p	Deprecated. Show private memory, it's replaced with -a parameter 
+•  db2support collects environment data for problem analysis. It includes : DBM/DB Configuration, 
+      OS snap shot, DB2 snapshot and diag information
+•  db2ckbkp can be used to test the integrity of a backup image and to determine whether or not the 
+      image can be restored. It can also display the metadata stored in the backup header, eg. 
+      online/offline backup, compress mode, include logs or not etc.
+•  db2adutl allows users to query, extract, verify, and delete backup images, logs, and load copy 
+      images that are saved using TSM
+•  "List History" command can display backup, reorg, rollforward, load, archive log, 
+      create/rename/alter tablespace information 
+•  db2expln tool describes the access plan selected for SQL and XQuery statements, 
+   For static SQL and XQuery statements, db2expln examines the packages stored in the system catalog tables. 
+   For dynamic SQL and XQuery statements, db2expln examines the query cache sections.
+•  db2pd retrieves information from the DB2 database system memory sets, used for monitoring and 
+      troubleshooting. It can display memory allocated, application currently running, lock acquired by 
+      applications, dbm/db configuration etc.
+•  DB2 diagnostic file name is db2diag.log , which is under path specified in DBM configuration DIAGPATH
+•  In each entry of db2diag.log, it generally includes following fields : Timestamp, Level (Warning/Error 
+      etc.), PID, TID, PROC, INSTANCE 
+•  Following fields may be included in the db2diag.log entry : EDUID, EDUNAME, FUNCTION, MESSAGE etc.
+•  The CREATE EVENT MONITOR statement defines a monitor that will record certain events that occur when 
+       using the database.
+    The event monitor can record following events : Database, Tables, Deadlocks, Tablespaces, Bufferpools, 
+        Connections, Statements, Trans
+    The event records can write to Database tables, pipe or files
+•  The function event_mon_state() can be used to check the monitor status, to see if it is active or inactive.
+•  db2advis can advises users on the creation of materialized query tables (MQTs) and indexes, the 
+       repartitioning of tables, the conversion to multidimensional clustering (MDC) tables, and the deletion 
+       of unused objects.
+    The following option indicates which type of advices will be included:
+    -I	Index
+    -M  MQT
+    -C  MDC
+    -P  Repartitioning of table
+
+•  When doing runstats for a table, there are two sample methods : Bernoulli and System. Bernoulli Sample is 
+      based on rows of the table, System Sample is based on the page level
+•  In HADR environment, The OS version/fixpack,DB2 version/level and database name must be the same on 
+   primary and standby server, but the instance name can be different
+•  When upgrading/updating instances in a HADR, fixpack of same release does not need to rebuild/recreate HADR
+•  DB2 HADR has 3 synchronization mode: SYNCH, NEARSYNCH, ASYNCH
+•  Possible states on the Primary database are as follows:  
+      Peer, Remote catchup, Remote catchup pending, DisconnectedPeer
+•  Possible states on the Standby database are as follows:  
+      Peer, Remote catchup, Remote catchup pending, Local catchup, DisconnectedPeer
+•  Possible connection status of HADR are as follows:  
+      Connected, Disconnected, Congested
+•  Following HADR command will change HADR role : start HADR, stop HADR, takeover HADr
+•  DBM Configuration changes won't be replicated between HADR pair
+•  Automatic client reroute (ACR) enables a DB2 Client to recover from a loss of connection to the DB2 server 
+      by rerouting the connection to an alternate server.
+•  The UPDATE ALTERNATE SERVER FOR DATABASE command is used to define the alternate server location on a 
+      particular database.
+•  ACR can be used within the following configurable Data Partition & High Availabilty environment: 
+      DPF, SQL/Q Replication, HADR, HACMP, TSA
+•  HADR has following parameters to configure : 
+      HADR_DB_ROLE, HADR_LOCAL_HOST, HADR_LOCAL_SVC, HADR_REMOTE_HOST, HADR_REMOTE_INST, HADR_REMOTE_SVC, 
+      HADR_SYNCMODE, HADR_TIMEOUT
+•  Command lssam can be used to check TSA resource groups status 
+•  Command db2haicu can be used to configure TSA environment
+
+•  Buffer pool hit ratio = 
+            1 - ( (data physical reads+index physical reads) / (data logical reads+index logical reads) ) 
+•  When database is using the privary memory for sort, the max concurrency sort operation equals the value 
+      SHEAPTHRES divide SORTHEAP
+•  There are many operation will cause db2 to sort, eg. SELECT DISTINCT, ORDER BY, GROUP BY, UNION ...
+•  During db2 sort operation, if the sorted data cannot fit entirely into the sort heap, it will overflows 
+      into temporary database tables
+•  To choose optimization access plan, optimizer will consider following factors : Buffer pools, CPU/IO, 
+      Network communication etc.
+•  SQL compilation has following phases: 
+   parse query, check semantics, rewrite query, Pushdown Analysis (Federated Databases), optimize access plan, 
+   Remote SQL Generation (Federated Databases), Generate Executable Code
+•  During the semantics checking phase of compliation, db2 will 
+   a) Validate SQL statement
+   b) Account for integrity constraints: Referential Integrity, Check, Triggers
+   c) View analysis: Merging, Materializing
+•  During the query rewriting phase of compliation, db2 will merge operation, move operation, translate 
+      predicate
+•  The valid optimization classes are as following : 0, 1, 2, 3, 4, 5, 7, 9
+   optimization level 0 - Use a minimal amount of optimization, only Nested Loop Join (NLJOIN) is used
+   optimization level 9 - Use all available optimization techniques
+•  The optimization classes is configured by parameter dft_queryopt
+•  There are three type of join for two tables : 
+      Nested Loop Join (NLJOIN), Merge Scan Join (MSJOIN), Hash Join (HSJOIN)
+•  When DB2 Uses a Table Scan: 
+    * The range of values scanned occurs frequently (that is, most of the table must be accessed)
+    * The table is small
+    * Index clustering is low
+    * An index does not exist
+•  Create indexes can 
+    * Avoid unnecessary table scans
+    * Ensure uniqueness
+    * Provide cluster order
+    * Avoid sorts
+    * Speed up frequently executed queries
+    * Speed up join predicates and support referential integrity
+    * Reduce deadlock situations
+•  There are two prefetch type: Sequential Prefetch and List Prefetch. List Prefetch can multiple I/O of 
+      same page
+•  The operator TBSCAN in the access plan means a tab scan, the operator IXSCAN means index scan, this 
+      indicates indexes are used by db2
+•  If a table is restricted to access (-668 error), then it needs to run "set integrity" command to 
+      immediately check the constraint
+•  To a MQT table, you can specify the data refresh approach : REFRESH DEFERRED, REFRESH IMMEDIATE. If the 
+      clause "REFRESH DEFERRED" is used, then the data needs to be synchronized by command "Refresh Table"
