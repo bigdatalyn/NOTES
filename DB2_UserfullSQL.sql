@@ -333,7 +333,152 @@ with ur"
 
 
 
+17.常用监控
 
+17.1 监控表空间状态 tbsp_state='NORMAL'
+
+db2 -v "select
+substr(tbsp_id,1,10) as tbsp_id,
+substr(tbsp_name,1,20) as tbsp_name,
+substr(tbsp_state,1,10) as tbsp_state
+from sysibmadm.tbsp_utilization with ur"
+
+
+        d069cms:/dbhome/d069cms$ db2 -v "select
+        > substr(tbsp_id,1,10) as tbsp_id,
+        > substr(tbsp_name,1,20) as tbsp_name,
+        > substr(tbsp_state,1,10) as tbsp_state
+        > from sysibmadm.tbsp_utilization with ur"
+        select
+        substr(tbsp_id,1,10) as tbsp_id,
+        substr(tbsp_name,1,20) as tbsp_name,
+        substr(tbsp_state,1,10) as tbsp_state
+        from sysibmadm.tbsp_utilization with ur
+        
+        TBSP_ID    TBSP_NAME            TBSP_STATE
+        ---------- -------------------- ----------
+        0          SYSCATSPACE          NORMAL    
+        1          TEMPSPACE1           NORMAL    
+        2          USERSPACE1           NORMAL    
+        3          COCOMOREGSPACE       NORMAL    
+        4          TMPSPACE1            NORMAL    
+        5          SYSTOOLSPACE         NORMAL    
+        
+          6 record(s) selected.
+        
+        
+        d069cms:/dbhome/d069cms$ 
+        
+
+17.2. 表空间利用率DMS <80%
+
+db2 -v "select 
+substr (tbsp_name,1,20), 
+substr(tbsp_state,1,10), 
+tbsp_utilization_percent 
+from sysibmadm.mon_tbsp_utilization with ur"
+
+
+	d069cms:/dbhome/d069cms$ db2 -v "select 
+	> substr (tbsp_name,1,20), 
+	> substr(tbsp_state,1,10), 
+	> tbsp_utilization_percent 
+	> from sysibmadm.mon_tbsp_utilization with ur"
+	select 
+	substr (tbsp_name,1,20), 
+	substr(tbsp_state,1,10), 
+	tbsp_utilization_percent 
+	from sysibmadm.mon_tbsp_utilization with ur
+
+	1                    2          TBSP_UTILIZATION_PERCENT
+	-------------------- ---------- ------------------------
+	SYSCATSPACE          NORMAL                            -
+	TEMPSPACE1           NORMAL                            -
+	USERSPACE1           NORMAL                            -
+	COCOMOREGSPACE       NORMAL                            -
+	TMPSPACE1            NORMAL                            -
+	SYSTOOLSPACE         NORMAL                         0.24
+
+	  6 record(s) selected.
+
+
+	d069cms:/dbhome/d069cms$
+
+17.3. 缓冲池命中率 >90%
+
+
+db2 -v "select 
+substr(bp_name,1,15), 
+total_hit_ratio_percent  
+from sysibmadm.bp_hitratio with ur"
+
+
+	d069cms:/dbhome/d069cms$ db2 -v "select 
+	> substr(bp_name,1,15), 
+	> total_hit_ratio_percent  
+	> from sysibmadm.bp_hitratio with ur"
+	select 
+	substr(bp_name,1,15), 
+	total_hit_ratio_percent  
+	from sysibmadm.bp_hitratio with ur
+
+	1               TOTAL_HIT_RATIO_PERCENT
+	--------------- -----------------------
+	IBMDEFAULTBP                      99.99
+	DEF32K                            99.97
+	IBMSYSTEMBP4K                         -
+	IBMSYSTEMBP8K                         -
+	IBMSYSTEMBP16K                        -
+	IBMSYSTEMBP32K                        -
+
+	  6 record(s) selected.
+
+
+	d069cms:/dbhome/d069cms$ 
+
+
+
+17.4. 数据库容量 < 60%
+
+
+db2 -v "call get_dbsize_info(?,?,?,-1)"
+
+	d069cms:/dbhome/d069cms$ db2 -v "call get_dbsize_info(?,?,?,-1)"
+	call get_dbsize_info(?,?,?,-1)
+
+	  Value of output parameters
+	  --------------------------
+	  Parameter Name  : SNAPSHOTTIMESTAMP
+	  Parameter Value : 2016-02-23-21.13.33.779759
+
+	  Parameter Name  : DATABASESIZE
+	  Parameter Value : 2873561088
+
+	  Parameter Name  : DATABASECAPACITY
+	  Parameter Value : 182417186816
+
+	  Return Status = 0
+
+	d069cms:/dbhome/d069cms$ 
+	
+	
+
+	
+17.5. 锁，锁等时间，锁列表
+
+db2 -v "select locks_held,lock_waits,lock_wait_time, lock_list_in_use from sysibmadm.snapdb with ur"
+
+
+17.6. 日志使用量
+db2 -v "select total_log_used,total_log_available from sysibmadm.snapdb with ur"
+
+17.7. 日志文件系统使用量
+
+db2 get db cfg |find /i "路径"
+df -k xxxx(路径)
+
+
+18.
 
 
 
