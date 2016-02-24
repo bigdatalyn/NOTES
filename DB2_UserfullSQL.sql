@@ -485,7 +485,9 @@ df -k xxxx(路径)
 之后 也可以通过 db2dart命令来解除 backup pending状态，如下（数据库特别大的时候，花时间不想做backup）
 db2dart testdb1 /chst /what dbbp off
 
-19.
+19.db2 get snapshot for database on sample中的sort overflow
+排序是cpu杀手，过多排序会造成cpu的极大消耗，应该尽量避免和减少
+排序溢出是说，如果排序堆无法容纳排序数据，就会被溢出到临时空间。
 
 
 
