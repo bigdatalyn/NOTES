@@ -1,0 +1,488 @@
+DB2数据库管理课程习题
+
+第一章
+
+1 . 列出DB2 子系统中几个主要的地址空间
+答： DDF , DBM1, MSTR, IRLM, SPAS
+
+2. 列举DBM1 地址空间所包含的几个功能模块
+答： Relational Data System, Data/Index Manager, Buffer Manager
+
+3. 为DB2 提供资源序列化（锁服务）的的是哪个地址空间？
+答：IRLM
+
+4. 列举与DB2 交互的一些系统地址空间
+答： CICS, TSO, IMS 等
+
+第二章
+
+1. DB2 中管理的数据主要以哪几种形式存在？
+答： 以下三种形式: 系统表和索引；用户表和索引；数据库描述符（Database Descriptor）
+
+2. 关联以下数据库以及其所对应数据对象DSNDB01 , DSNDB06 , DSNDB07 , DSNDB04 , DSNDB09, User defined database, Directory , User Default Database, Catalog, DB2 Workfile Database
+答：DSNDB01 : Directory
+     DSNDB06 : Catalog
+     DSNDB07 : DB2 Workfile Database
+     DSNDB04 : User Default Database
+     DSNDB09 : User defined database
+
+3. 以下SQL 语句：
+     CREATE TABLE TE03.DEPT
+     (DEPTNO CHAR(3) NOT NULL,
+     DEPTNAME VARCHAR(36) NOT NULL,
+     MGRNO CHAR(6) ,
+     ADMRDEPT CHAR(3) NOT NULL,
+     LOCATION CHAR(16) ,
+     PRIMARY KEY(DEPTNO) );
+在 V8 中，本表格将建立在哪个数据库中？ 在V9 呢？
+答：V8 中，本表格将在DSNDB04 中建立; V9 以后，系统将新建一个数据库，或者自动寻找一个已经存在的数据库来装盛这个表格。
+
+4. 判断正误：一个表空间只能放一个表。
+答：错
+
+5. 判断正误：一个索引空间只能放一个索引。
+答：正确
+
+6. 表空间/索引空间的I/O 单元称为______。
+答：页（page
+
+7. 表空间/索引空间在物理上是以什么形式存储的？
+答： VSAM ESDS
+
+8. 判断正误：表空间/索引空间页大小可以是4K, 8K, 16K, 32K.
+答： 错。 索引空间只能是4K Page.
+
+9: 判断正误：理想情况下，每个数据库只包含一个表。
+答： 正确
+
+10: 列举DB2 中的几种表类型：
+答： Base Table; Clone tables, temprorary tables, XML table, MQT; Auxiliary Tables
+
+11: DB2 的索引组织数据结构为_____.
+答： B+树
+
+12. 索引的好处包括：
+答：
+   1.To improve performance. Access to data is often faster with an index than without.
+   2.To ensure that a row is unique. For example, a unique index on the employee table ensures that no two employees have the same employee number.
+   3.To cluster the data.
+   4.To determine which partition the data goes into.
+   5.To provide index-only access to data.
+   6.Simple table spaces.
+   7.Segmented table spaces.
+   8.Partitioned table spaces.
+   9.Universal table spaces.
+   10.EA-enabled table spaces and index spaces.
+   11.Large object table spaces.
+   12.XML table spaces.
+
+第三章
+
+1. DB2 的系统数据存放在___和___中。
+答： Catalog 和 Directory
+
+2. 以下数据库对象中，哪些是在磁盘中的，哪些是在内存中的？
+   Catalog
+   EDM pools
+   Directory
+   Buffer pools
+   Active and archive logs
+   BootStrap Data Set (BSDS)
+答：磁盘中：
+   Catalog
+   Directory
+   Active and archive logs
+   BootStrap Data Set (BSDS)
+内存中：
+   Buffer pools
+   EDM pools
+
+3. 说明一下编目表格的存放内容：
+   SYSIBM.SYSTABLESPACE
+   SYSIBM.SYSTABLES
+   SYSIBM.SYSINDEX
+   SYSIBM.SYSKEYS
+答:
+   SYSIBM.SYSTABLESPACE ：系统中的表空间信息
+   SYSIBM.SYSTABLES ：系统中所有的表信息
+   SYSIBM.SYSINDEX ：系统中所有的索引信息
+   SYSIBM.SYSKEYS ： 索引中所有列的信息
+
+4. 哪些方法有助于提高编目的效率？
+答:
+常常对编目进行备份；定期刷新统计数据；Reorg; Check.
+
+5. 判断正误:Catalog 和 Directory 中存放的信息相同，只是格式不同。
+答: 错
+
+6. 使用Log 在第一时间记录下交易带来的数据变化能够带来什么好处？
+答：
+   1). Log 由于是顺序记录，所以I/O 效率高。
+   2). Log 中不仅仅包含修改后的信息，还包含修改前，修改者等其他重要的控制信息。
+
+7. BSDS 的组织结果是__文件。
+答： KSDS
+
+8.判断正误：缓冲池的页面大小决定了与之关联的表空间的页面大小。
+答: 正确
+
+9. EDM 缓冲池中包含哪些信息？
+答:
+   DBD pool
+   Dynamic stmt cache
+   SKPT/SKCT pool
+   Package and plan
+
+10. 判断正误：系统编目表的数据缓冲在EDM 缓冲池中。
+答: 错; 使用缓冲池BP0 ( )
+
+第四章
+
+1. 数据库设计中，包含功能性和非功能性的设计。非功能性的设计目标包含什么内容？
+答：
+   平台选择
+   体系结构（分布式或者集中式）
+   性能目标
+   数据量和增长率
+   编码
+   安全计划
+   备份和恢复机制
+
+2. 计算系统的存储空间的时候，需要考虑到的对象，除了用户数据所占用的表空间意外，还应包括?
+答：
+1) 数据备份 2) 系统表，系统数据库，系统日志等 3) 临时表空间
+
+3. CREATE DATABASE 可以指定哪些参数？
+答：1) 存储组 Storage group. 2) 缓冲池 Buffer pool. 3) 索引缓冲池Index buffer pool.
+
+4. 列举DB2 中用到的表空间类型
+答： 1. Segmented 2.Partitioned 3.Universal 4.LOB
+
+5. 判断正误：创建表的时候， 一定要指定表空间，因为系统中没有设置默认表空间。
+答: 错
+
+6. 判断正误：表中每一行数据的大小不能超过表一页的大小。
+答： 正确
+
+7. DB2 内置了什么方式来进行插入数据范围的正确性检验？
+答： Check 约束
+
+8. DB2 提供哪些方式来制定数据检验规则？
+答： Check 约束， 应用约束， 触发器
+
+9. DB2 的存储过程按照语言，以及所运行的地址空间可分为两大类。分别是？
+答： 外部存储过程，以及本地（Native）存储过程
+
+10. 往数据库表格中插入大量数据，可以有哪些方式？
+答： LOAD 实用程序； 使用Cursor; 使用批量的SQL insert
+
+第五章
+
+1. 简述什么是MQT, 以及MQT 的好处。
+答：MQT 定义： A MQT is a table that is used to contain materialized data that is derived from one or more source tables specified by a fullselect.
+   MQT 好处: 加速查询
+
+2. MQT 和View 有什么不同？
+答：MQT占据存储空间，包含实际的数据。View只有数据结构的描述，不包含实际数据通过MQT查询的数据可能过时，通过View查询的数据直接从基表中获取，不会过时。
+
+3. 使用什么参数使得MQT 的数据和基表同步刷新？
+答：REFRESH DEFERRED
+
+4. 判断正误： 克隆表和基表具有相同的表空间和索引名。
+答: 正确
+
+5. 判断正误： 当克隆表存在的时候，基表不能修改表结构。
+答： 正确
+
+6. 判断正误：克隆表创建的时候，包含于基表相同的结构和数据。
+答：错。 克隆表创建后，其数据为空。
+
+７.描述索引压缩的流程。
+答：STOP INDEX->修改index, 使用更大的页大小-> ALTER INDEX ... COMPRESS YES -> REBUILD INDEX
+
+8. Not logged Table Spaces 与其他Table spaces 有什么不同，有什么应用？
+答：Not logged table spaces 在更新的时候不会记录undo/redo 日志的信息，所以更新的开销更小。一般用于非交易性的数据更新，尤其是批量更新。
+
+9. 多行插入和查询能带来什么好处？
+答：因为一次查询／插入多行，所以数据库与应用程序之间的数据交换次数减少了，可以提高效率。
+
+10. 如何实现多行插入和查询功能？
+答：在应用程序中，需要定义Host variable Array(HVA)来接收查询和插入的多行在数据库中，要使用rowset 以及rowset cursor.
+
+第六章
+
+1. 在DB2 中，安全的防范一般包括那几个方面？
+答：数据集安全； 身份验证； 权限检验
+
+2. DB2 的授权和权限验证可以通过什么方式进行？
+答：内部验证,使用SQL DCL；外部（RACF）验证
+
+3. 内部验证DCL 包含什么语句？
+答： GRANT 和REVOKE
+
+4. 一个用户的授权ID 又哪些部分组成？
+答： 一个表明身份的主要ID，和多个表明所属组织的次要ID（Secondary ID）组成
+
+5. 在创建数据库对象的时候，如果没有显示指定前缀，则使用什么作为前缀？
+答： 当前的Schema
+
+6. 创建数据库对象的时候，对象的拥有者是(Owner)？
+答：当前的SQL ID
+
+7. DB2 中使用DCL 可以保护的对象包括？
+答： 1.DB2 Data Objects 2.Package/Plan 3.Collection 4.Distincttype 5.Function or stored procedure 6.Schema 7.Sequence 8.Use
+
+8. 如果UserA 授权给UserB 使用UserA创建的表，想要UserB也能为其他人授权使用此表。则UserA在对UserB授权的时候，需要指定___.
+答： with grant
+
+9. 在分布式环境中，为了解决用户使用同一个连接参数从Web Application Server 连接DB2 的问题。可以使用的方案是____.
+答: Trusted Context
+
+10. ___可以在数据库的行上面根据定义的____进行权限控制。
+答：1.row level security 2.security label
+
+第七章
+
+1. 如果缺乏锁保护，数据库中可能造成的异常包括?
+答：1. Phantom Row Anomaly 读取不存在数据异常 2. Non-repeatable Read 不可重复读异常 3. Dirty Read Anomaly 脏数据异常 4.Lost Updatae Anomaly 更新丢失异常
+
+2. 列举数据库中的独立等级
+答： 1. Repeatable Read (RR) 可重复读级别 2. Read Stability (RS) 读取稳定级别 3. Cursor Stability (CS) 游标稳定级别 4. Uncommitted Read (UR) 可读取未提交数据级别
+
+3. 按照锁强度， DB2 中所用到的锁种类包括？
+答：S, X, U, IS, IX, SIX
+
+5. 对一个segmented 表空间而言，其表等级是怎样的？
+答：segmentd table spaces > tables > tables 或者rows
+
+6. 对一个Partitioned 表空间而言，其表等级是怎样的？
+答：partition>tables 或者rows
+
+7. DB2 中默认的隔离级别是___
+答: CS (Cursor Stability)
+
+8. 隔离级别中最严格的一级是__
+答： RS (Read Stability)
+
+9. 当一个表空间分区中被发现有太多的页锁（类型：S 读取），DB2 可能自动采取什么措施来减少系统锁开销？
+答： 锁升级。用一个分区上的读锁来代替对多个页上的读锁。
+
+10. 描述一个死锁发生的情况。
+答：当两个线程，都已经获取部分资源，而且这部分资源包含对方等候的资源的时候，死锁就发生了。
+
+第八章
+
+1. 判断正误：当一个交易提交的时候，数据的变更首先记录到日志中，然后再写入数据库表。
+答： 对
+
+2. DB2 的日志中记录那几个方面的信息？
+答：UR 日志； 检查点（Checkpoint）; 数据集开关状态的信息。
+
+3. 请简要描述DB2 活动日志和归档日志的作用和联系。
+答：活动日志为DASD上的一系列数据集，日志记录从日志缓冲池直接写入活动日志。活动日志为循环写入，也就是写满的时候会覆盖以前写入的日志。在旧活动日志被覆盖之前，DB2 会控制将活动日志内容自动载入归档日志。归档日志为顺序文件。BSDS 记录了关于某一日志记录在那个日志文件中的信息。
+
+4. 一套完整的UR 日志包含什么信息？
+答： UR 开始记录，UR 结束记录/异常终止记录；Undo/Redo 日志。
+
+5. 未提交的恢复单元（UR）应该进行怎样的处理？
+答： 对于未提交的回复单元，DB2 应用Undo 日志对每一个交易步进行回滚。在回滚的同时会记录补偿日志（compensation log）。 回滚完成，本交易对数据库所造成的影响取消。
+
+6. 恢复单元和交易有什么区别？
+答： 交易是对应用程序而言的；恢复单元是对数据库而言的。一个对数据库有数据修改的交易中，从对数据库的第一个修改开始视为恢复单元的开始； 对数据库发出“提交”的一刻算作交易的结束。
+
+7. 请描述Undo 日志的格式。
+答： Undo 日志记录格式为; 表示交易T 修改了数据库元素X, 其修改前值为v.
+
+8. 请描述Redo 日志的格式。
+答： Redo 日志记录格式为; 表示交易T 修改了数据库元素X, 其修改后值为v.
+
+9. 描述DB2 检查点（Checkpoint）的内容。
+答： Checkpoint 包含三部分数据：BEGIN CHECKPOINT 日志； 关于当前正在运行的所有UR 的信息列表； 关于当前打开状态的表空间和索引空间的信息；END CHECKPOINT 日志。
+
+10. 记录检查点的时机有些什么？
+答： 在预定的时间节点记入；在活动日志转换时记入；重启DB2 结束的时候；DB2 正常终止的时候。
+
+第九章
+
+1. DB2 关闭可能的情况有那三种？
+答： 正常关闭；立即关闭；灾难关闭。
+
+2. 描述系统重启的几个步骤。
+答： 1, 日志初始化；2. 当前状态重构；3. 日志向前回复；4. 日志向后回复。
+
+3. DB2 正常关闭时，进行的清理工作包括？
+答： 所有连接关闭；所有缓冲区清空； 数据文件关闭； 记录关闭的检查点日志；归档完成；状态信息成功记录入BSDS.
+
+4. 缓冲池中修改的数据在什么时机会写入磁盘中？
+答：预先设定的数据文件的修改写入比例达到的时候；缓冲池的写入门槛达到之后；文件物理关闭的时候；文件伪关闭的时候；写系统检查点的时候；Quiesce; 立即写入命令的时候； DB2 重启的时候。
+
+5. 请列举至少三种需要恢复的UR 状态。
+答： Inflight; Indoubt; In-commit; In-abort; postponed-abort.
+
+6. DB2 通过___中保存的信息来确定需要恢复的UR?
+答： 检查点。
+
+7. 当你重启的时候想要跳过一段日志， 可以在BSDS 中指定____.
+答： 有条件重启（conditional restart）
+
+8. DB2 自动把一些没有经常更新的数据集从读写状态转变为只读状态，这叫_____.
+答： 伪关闭。
+
+9. 请描述DB2 在日志初始化进行的工作。
+答： 检验两份BSDS 的时间邮票；应用BSDS 中的信息找到日志尾部。
+
+10. 判断正误：DB2 正常关闭的之后重启，没有UR 需要恢复。
+答： 对
+
+第十章
+
+1. ___（产品）为DB2 提供数据管理功能，可以自动为数据集进行备份和恢复。
+答： DFSMS
+
+2. DB2 迁移中要经过那几个状态？
+答： 转换状态； 启用新功能状态； 新功能状态。
+
+3. 在进行用户数据升级中，需要有那几个方面的工作？
+答：1. 保存所有应用的存取路径（Access Paths） 2. 包和计划。 3. 数据卷备份 4. 重新建立索引 5. 启用修改数据捕获 6. 校验视图、存储过程和函数
+
+4. 在进行系统数据升级的时候，需要那些方面的工作？
+答：1. 备份BSDS 2. 检验Directory 和编目之间的一致性 3. 重新定义DB2 的初始化参数：DSNTIJUZ 4.立新系统的安全管理机制 5.通过DSNTIJMV中将新系统定义到z/OS 中 6.定义系统数据集
+
+5. 在系统迁移中，如果出现问题需要回到原来的版本，叫做____. 之后重新进行迁移，叫作_____.
+答：fallback， remigration.
+
+6. 我们可以通过系统___所提供的样本应用来验证我们新安装/迁移的DB2 子系统。
+答：IVP (Installation Verification Programs, 安装验证程序)
+
+第十一章
+
+1. 列出DB2 中至少三种附属设备（Attachment Facility）
+答： TSO AF; CICS; CAF; IMS AF; RRSAF.
+
+2. 以下哪个附属设备可以用于编程中？
+   A. TSO AF; B. CICS; C. CAF; D. IMS AF; E. RRSAF.
+答: C E
+
+3. 简单描述一个DB2 连接 （connection）启用线程（Thread）的生命周期。
+答： 确认； 登入； 创建线程； 终止线程； 终止身份； 转换。
+
+4.以下哪些附属设备支持多线程连接？
+   A. TSO AF; B. CICS; C. CAF; D. IMS AF; E. RRSAF.
+答: B D
+
+5. ___是工业界标准的关系型数据库数据库跨平台对话架构。
+答： DRDA
+
+6. DB2 对DRDA 的实现称为____
+答： DDF
+
+7. DB2 支持的网络协议有___和__.
+答： TCP/IP; SNA
+
+8. DB2 交互（DB2I)使用的附属设备（Attachment Facility）是？
+   A. TSO AF; B. CICS; C. CAF; D. IMS AF; E. DB2I AF. 答: A
+
+9. 用DSN 命令可以执行所有的DB2 命令，除了___.
+答： START DB2
+
+10. 在CICS 中定义与DB2 的连接，我们可以定义___资源来描述一个或者一组CICS 交易和DB2 的连接参数。
+答：DB2ENTRY
+
+第十二章
+
+1. 简单描述数据共享（Data Sharing）带来的优势.
+答： 在数据量和交易量上可以大大增强数据库的容量； 增加可用性，带来更高的availability；系统整合变得简单; 由于系统运算和存储能力的提高，因而提高性能。
+
+2. 构建数据共享的前提包括：
+答： 一个Sysplex 时钟； 一组coupling facility; 在系统SYS1.PARMLIB 和SYS1.PROCLIB 中需要相应的配置。
+
+3. 在一个数据共享环境中，相比单机版， 共享的资源有：
+答: 全局锁机制； 共享的交流区； 共享的组缓冲池。
+
+4. 判断正误： 分区表在数据共享环境中，不同的分区可以分由不同的DB2 成员处理。
+答： 对
+
+5. 在数据共享环境中，任何DB2 成员对数据进行的修改，都放入——中。
+答： Group Buffer Pool. 全局缓冲池。
+
+6. 判断正误：在数据共享环境中，每个DB2 成员不再保存自己的缓冲池。
+答：错误。
+
+7. 判断正误：在数据共享环境中，单个DB2 成员的失败只会影响他自己所管理的数据。
+答：错误。
+
+8. 在数据共享环境中, 为了实现全局序列化而引入的锁类型叫————。
+答： p-lock. 物理锁。
+
+9. 判断正误：在数据共享环境中，每个组缓冲池都对应了一个成员缓冲池。
+答：对。
+
+10. 数据共享环境中可以避免哪些失败对DB2 持续服务的影响？
+答：单个DB2 成员失败； 操作系统失败； Lpar 处理器失败； I/O 通道失败。
+
+第十三章
+
+1. 可以在什么地方发出DB2 命令？
+答：z/OS 指挥中心或者TSO.
+
+2. DSN 命令可以从那些地方发出？
+答： DB2I； TSO 会话中； 批处理作业中。
+
+3. 列出至少三个DSN 命令的子命令。
+答： BIND；DCLGEN； FREE； REBIND； RUN； SPUFI； END
+
+4. 写出在DB2I 中查看所有缓冲池的命令。
+答：-display bufferpoool
+
+5. DB2 的Utilities 按照执行方法分类有哪些类型？
+答： online utilities; offline utilities; Productivity-aid sample programs.
+
+6. Utilities 有些什么特点？
+答：他们一般涵盖DB2 应用常常需要的功能；在系统级别上进行处理； 直接而且高效；并且通常都通过批处理作业进行。
+
+7. DB2 utilities 按照功能分为四大块。分别是：
+答：data consistency, setup/move, maintenance, recovery.
+
+8. 判断正误：repair DBD 是属于data consistency utility 的。
+答：对。
+
+9. 用于收集DB2 中各种使用数据的信息utility 是___.
+答：runstats
+
+10. Index advisor, access path advisor, query advisor 是包含在__工具中。
+答：OE（优化专家）。
+
+第十四章
+
+1. 进行调优一般有两个范畴，分别是——
+答： 系统调优， SQL 调优
+
+2. 系统调优的目标在于优化：
+   A. 系统反应时间; B. 网络反应时间; C. 磁盘反应时间; D. 当前的负荷; E. 商业目标,
+答: ABCDE
+
+3. 请描述调优的一般步骤
+答: 计划。 设立调优目标和性能监控计划。 并执行这些计划。
+   监控。分析性能报告，确定达到和未达到的目标。如果性能目标没有达到，通过试图减少负面影响的方式来增强性能。
+   调优。 当决定需要用调优的方式来增强性能，从系统和SQL 两方面进行调优
+
+4. 列出至少三个与系统性能相关的影响因子：
+答：CPU 的使用；虚拟存储； 实存；缓冲池（包括EDM 缓冲池）； 统计和跟踪带来的开销。
+
+5. 系统使用的预取机制有哪几种？
+答： 顺序预取（Sequential prefetch）； 动态预取（Dynamic prefetch）； 列表预取（List prefetch）。
+
+6. DB2 trace 记录那些方面的信息？
+答：六个方面。分别是： statistics, accounting, audit, performance, monitor, global.
+
+７.判断正误：trace 为DBA 带来非常重要的调优信息，所以我们应该在DB2 中广泛地应用trace.
+答：错误。trace 也会带来很大的系统开销。
+
+8. 通过__可以获取一个 SQL 语句的Access path.
+答： explain
+
+9. 列出几种可以进行性能调优的工具。
+答：omegamon; OSC; OE 等
+
+10. 列举几种提高查询效率的方法。
+答： 在查询条件列上建立索引； 在排序列上建立索引； 有统计数据的时候使用MQT； Optimizefor N rows 选项。等
