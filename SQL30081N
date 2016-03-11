@@ -1,0 +1,45 @@
+SQL30081N A communication error has been detected. 
+
+
+上星期遇到有个客户说做了个DB2升级从V9.5.0.10 to V10.1.0.4，然后就遇到下面的错误， 说job会时不时的掉线导致job fail，但是不是每次都掉，一天连数据库掉三四次，不过客户是从data-stage这个软件上跑的job。。。
+----------------------------------
+
+SQL30081N  A communication error has been detected. Communication protocol
+being used: "TCP/IP".  Communication API being used: "SOCKETS".  Location
+where the error was detected: "9.63.48.165".  Communication function detecting
+the error: "recv".  Protocol specific error code(s): "110", "*", "*".
+SQLSTATE=08001
+
+----------------------------------
+
+1. 看起来是连接问题，去knowledge center查看到：
+
+If protocol = TCP/IP, function = recv, rc1 = ETIMEDOUT/WSAETIMEDOUT, AIX (78), Windows (10060), linux (110), SUN (145), HP (238), the connection was dropped because the remote system failed to respond. Possible causes:
+
+    SQLCancel() was called from a CLI application because the application set the Query Timeout value or there was an explicit cancel request. Adjust the Query Timeout value set by the application. If this is not possible, adjust the QueryTimeoutInterval setting in the db2cli.ini file. Use QueryTimeoutInterval=0 (no timeout) in the db2cli.ini file to test whether QueryTimeout is the cause of your application's failure. The failure of an existing connection is expected in this scenario.
+    The network is slow, or the server might be too busy to respond to the recv request within a reasonable amount of time, you might need to adjust your system TCP recv timeout value.
+
+很奇怪，我自己在client上连server貌似一点事情没有，不会掉，不知道是不是DS的设置有问题还是怎么样，我就去client那边的sqllib/cfg里面找到db2cli.ini，加了个QueryTimeoutInterval=0在里面，然后客户说貌似好了点，过了两天又回来找说还是一样。。。
+
+ 
+
+2. 然后我就想是不是大版本升级完了catalog有问题，就重新uncatalog/catalog 了一下node和db，客户再试，结果第二天说还是这样。。。
+
+ 
+
+3. 想不到其他理由，开了个PMR 18924,L6Q,000去找lv2看有没有什么建议，lv2回复说：>>> Increasing TCPIP Keepalive should mostly resolve your problem, but if it doesn't you might need to adjust your system TCP connect timeout value and/or the DB2TCP_CLIENT_CONTIMEOUT value.We can try that if the keepalive fails to resolve this issue.<<<
+
+然后我就去找OS的人帮忙改keepalive这个参数，把默认的7200改成了两倍的14400
+
+------------------------------------------------------
+g03zcirdb006:/etc # sysctl -a|grep keepalive_time
+net.ipv4.tcp_keepalive_time = 14400
+------------------------------------------------------
+感觉不放心，又去client server那边改了DB2TCP_CLIENT_KEEPALIVE_TIMEOUT这个值
+
+--------------------------------------------------------
+ddb2cae@g03zciwas020:~> db2set -all
+[i] DB2TCP_CLIENT_KEEPALIVE_TIMEOUT=14400
+-------------------------------------------------------
+
+两个参数改了后再让客户试，连续两天貌似都没问题了，连接不会再掉了。。。算是resolve了。。。lv2还给了个网址我参考：http://www-01.ibm.com/support/docview.wss?rs=203&uid=swg21231084
