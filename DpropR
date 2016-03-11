@@ -120,6 +120,58 @@ BILL_ADDR1                      SYSIBM    CHARACTER                  105     0 Y
 
 
 
-#### 问题3
+#### 问题3 Dprop启动遇到ASN0121E报错 
+
+今天拿到一张tkt，遇到ASN0121E报错
+
+ 
+
+2015-04-12-11.00.00.621709 <asnParmClass::printParms> ASN0529I  "Capture" : "ASN" : "Initial" : The value of "LAG_LIMIT" was set to "10080" at startup by the following method: "IBMSNAP_CAPPARMS".
+
+2015-04-12-11.00.00.695734 <getRestartInfoValidateWarmstar> ASN0121E  CAPTURE "ASN" : "WorkerThread". The Capture program warm start failed because existing data is too old. The Capture program will terminate.
+2015-04-12-11.00.01.035754 <asnThread::stop> ASN0590I  "Capture" : "ASN" : "Initial" The thread "Initial" received return code "3006" from the exiting thread "WorkerThread".
+2015-04-12-11.00.03.052534 <asnThread::stop> ASN0590I  "Capture" : "ASN" : "Initial" The thread "Initial" received return code "2011" from the exiting thread "AdminThread".
+2015-04-12-11.00.03.052681 <asnThread::stop> ASN0590I  "Capture" : "ASN" : "Initial" The thread "Initial" received return code "2011" from the exiting thread "PruneThread".
+2015-04-12-11.00.03.055873 <Asnenv:delEnvIpcQRcvHdl> ASN0595I  "Capture" : "ASN" : "Initial" The program removed an IPC queue with keys "(0x30000139)".
+2015-04-12-11.00.03.056019 <asnThread::stop> ASN0590I  "Capture" : "ASN" : "Initial" The thread "Initial" received return code "0" from the exiting thread "HoldLThread".
+2015-04-12-11.00.03.056100 <erWhatSignal> ASN0591I  "Capture" : "ASN" : "HoldLThread" The thread "HoldLThread" received "Handled" signal "SIGUSR2".
+2015-04-12-11.00.03.057465 <_asnCapture> ASN0008I  CAPTURE "ASN" : "Initial". The Capture program was stopped.
+
+A. 发现是因为Lag已经太大，超过了LAG_limit
+
+dpodccp@g01cxnp05022:/home/dpodccp/torun#db2 "select second(current timestamp - synchtime) + \
+> ((minute(current timestamp) - minute(synchtime)) * 60) + \
+> ((hour(current timestamp) - hour(synchtime)) * 3600) + \
+> ((days(current timestamp) - days(synchtime)) * 86400) as capture_lag, \
+> ' seconds' from asn.ibmsnap_register where global_record='Y' with ur"
+
+CAPTURE_LAG 2       
+----------- --------
+    1905385  seconds
+
+B. 接着去检查LAG这段时间的log还在不在
+db2 "select CD_NEW_SYNCHPOINT,SYNCHPOINT,SYNCHTIME from asn.IBMSNAP_REGISTER where GLOBAL_RECORD='Y' with ur"
+CD_NEW_SYNCHPOINT                     SYNCHPOINT                          SYNCHTIME                 
+------------------------------------- ----------------------------------- --------------------------
+-                                     x'0000000000042EC20000001F7E99BE99' 2015-03-23-20.02.14.000000
+
+  1 record(s) selected.
+
+
+C. sudo到实例下：
+在list db directory找到DB的目录 Local database directory             = /db/a1inodc/db2data/wwwodcdb
+进到SQL00001下面，例如/db/a1inodc/db2data/wwwodcdb/a1inodc/NODE0000/SQL00001输下面的命令找到capture LAG的现在在哪个log，1F7E8DD60E来自上面的sql
+a1inodc@g01cxnp05022:/db/a1inodc/db2data/wwwodcdb/a1inodc/NODE0000/SQL00001# db2flsn -db wwwodcdb 1F7E8DD60E
+Given LSN is in log file S0003343.LOG
+
+连接数据库
+db2 get db cfg | grep -i log找到 Path to log files = /db/a1inodc/actlog/NODE0000/LOGSTREAM0000/
+db2adutl query logs 看看log 3343以后的还在不在，在的话直接重启capture用带LAG_LIMIT=99999,例如：
+nohup asncap capture_server=WWWODCDB capture_schema=ASN startmode=warmns logreuse=y prunemsg=y LAG_LIMIT=99999 &
+
+如果启动成功，db2diag里面显示能正常retrive log，说明在进行，也可以用之前的db2 "select CD_NEW_SYNCHPOINT,SYNCHPOINT,SYNCHTIME from asn.IBMSNAP_REGISTER where GLOBAL_RECORD='Y' with ur"查看有没有更新
+
+D.如果b里面检查到log已经不在了，那就只能做个capture的cold start了。。。这个要跟customer缺认。。
+
 
 
