@@ -1,0 +1,50 @@
+01.Error Initialize environment failed with TSM return code 106 
+
+今天遇到TSM的问题，dsmc可以用，db2adutl 不能用，出现下面的错误导致log不能上传TSM出现file system full的问题
+
+a1inavsp@g01zcdrdb007:/db/a1inavsp/actlog_avsdbp/NODE0000> db2adutl query logs
+
+Error Initialize environment failed with TSM return code 106
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+一开始Linux的过来说DB2的log占了/目录，我纳闷，DB2有自己dedicated的FS，为啥会跑到/上，原来在DB cfg里面的参数FAILARCHPATH被带到了一个/下的地方，因为TSM无法上传log，出错后把log往FAILARCHPATH指定的目录放，导致/满了。。。
+
+ 
+1. 首先把FAILARCHPATH改到了DB2 dedicated的FS里面不在让/继续增长
+
+2. TSM的这个错，cat /usr/tivoli/tsm/client/api/bin64/sample/dsmrc.h |grep -p 106可以看到106的错误问题是：#define DSM_RC_ACCESS_DENIED       106 /* denied due to improper permission */
+
+  貌似是哪个目录不够权限
+
+3. 去看dsm.sys文件：
+a1inavsp@g01zcdrdb007:/db/a1inavsp/actlog_avsdbp> cat /opt/tivoli/tsm/client/api/bin64/dsm.sys
+Servername pok1seb002
+TCPServeraddress xxxxxxxx
+COMMmethod TCPip
+TCPPort 1500
+NODename xxxxx
+TCPCLIENTPort 1501
+TCPCLIENTAddress xxxxxxx
+PASSWORDAccess generate
+GROUPs dbadmin dbadmin
+schedlogname /var/log/tsm/dsmsched.log
+errorlogname /var/log/tsm/dsmerror.log
+exclude /var/log/tsm/.../*
+a1inavsp@g01zcdrdb007:/db/a1inavsp/actlog_avsdbp> ls -l /var/log/tsm/dsmsched.log
+-rwxrwxr-x 1 root root 19341002 Apr  8 07:01 /var/log/tsm/dsmsched.log
+a1inavsp@g01zcdrdb007:/db/a1inavsp/actlog_avsdbp> ls -l /var/log/tsm/dsmerror.log
+-rwxrwxr-x 1 root root 19410 Apr  8 07:45 /var/log/tsm/dsmerror.log
+
+发现这两个log文件没有写权限
+
+4. 进一步判断是/var/log/tsm/dsmerror.log的权限问题
+
+ea1inavsp@g01zcdrdb007:/db/a1inavsp/actlog_avsdbp> export DSM_CONFIG=/opt/tivoli/tsm/client/api/bin64/dsm.opt
+a1inavsp@g01zcdrdb007:/db/a1inavsp/actlog_avsdbp> export DSM_DIR=/opt/tivoli/tsm/client/api/bin64
+a1inavsp@g01zcdrdb007:/db/a1inavsp/actlog_avsdbp> dsmc
+ANS1398E Initialization functions cannot open one of the Tivoli Storage Manager logs or a related file: /var/log/tsm/dsmerror.log. errno = 13, Permission denied
+
+5. 让Linux把这个文件改成777，然后重新logon，db2adutl就可以进行操作了。
+
+
