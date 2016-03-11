@@ -1,0 +1,125 @@
+#### 问题1
+
+今天Dprop capture起不来，看了下log，遇到了ASN0057E  CAPTURE "ASN" : "LogrdThread". The Capture program encountered error "13" on "open" for file "/a3inr2f.R2FAPP.ASN.CAP.0000001.spill".的报错。
+
+
+原因：因为capture在默认启动命令中，2015-09-04-22.36.24.663319 ASN0529I  "Capture" : "ASN" : "Initial" : The value of "MEMORY_LIMIT" was set to "32" at startup by the following method: "IBMSNAP_CAPPARMS".
+
+memory_limit初始值32太小了，有些事务或者sql stament抓出的数据太大，撑破了32MB的内存，就会报spill溢出错误
+
+ 
+
+方法：
+
+1. 先在ulimit -a里面看看内存有没有限制，然后尝试增大memory_limit的大小到2048，asncap capture_server=R2FAPP capture_schema=ASN logstdout=y memory_limit=2048
+
+2. 发现靠谱，capture不停了，log里面也没出现spill的报错了，过了不久两边就同步了。
+
+3. 跟客户confirm，直接把这个参数加到启动脚本的命令里面。（当然也可以把这参数直接update到控制表里面^_^）
+
+4. 然后学会了另一个在AIX上动态看内存的命令，nmon进去m看当前内存。
+
+
+#### 问题2
+
+今天收到一张tkt，遇到的问题是DPROP的问题，有个set 显示-1不同步
+APPLY_QUAL         SET_NAME           SOURCE_ALIAS TARGET_ALIAS ACTIVATE STATUS LASTRUN                               LASTSUCCESS                     SYNCHTIME                          SLEEP_MINUTES
+------------------         ------------------           ------------       ------------           --------         ------ --------------------------             --------------------------             --------------------------                 -------------
+EBCC30             AUDVENDORINVOICE   CAREPRD      CAREUTF8            1              -1      2015-05-18-06.15.44.272378 2015-05-17-00.01.00.000000 2015-05-11-15.52.48.160717          1440
+
+1. 在apply的log里面找到下面的报错：
+2015-05-18-06.25.47.496829 <CPWPLAN(5E/03)> ASN1065E  APPLY "EBCC30" : "WorkerThread".  The Apply program cannot process data for the subscription set  "AUDVENDORINVOICE" because one or more of the registrations for the source table are stopped.
+
+----------------------------------------------------------------------
+
+knowledge center给这个解释：
+ASN1065E
+APPLY apply_qualifier. The Apply program cannot process data for the subscription set set_name because one or more of the registrations for the source table are stopped.
+Explanation
+
+The Apply program cannot process data for this subscription set, because at least one of the registrations has STATE='S' in the IBMSNAP_REGISTER table.
+
+The Capture program stops a registration if there is a problem with the registration that requires your intervention. Refer to the STATE_INFO column in the IBMSNAP_REGISTER table for error information. The integrity of the captured data for the registration might be compromised, and the Apply program must perform a full-refresh. This problem might occur if the registered source table was altered with data capture none.
+User response
+
+Fix the stopped registrations using the information from the error messages. Reactivate the registrations. When you reactivate the registrations, the Apply program performs a full refresh.
+
+-------------------------------------------------------------------------
+
+在TRC文件里找到：看起来是表CCAUDIT.VENDOR_INVOICE有问题
+
+WPLAN: one of the source table is in stopped state. apperrc is 5E6503.
+SAT: ASNLOAD is null
+SAT: FULL_REFRESH is null
+SAT: SET_INSERTED = 0
+SAT: SET_DELETED = 0
+SAT: SET_UPDATED = 0
+SAT: SET_REWORKED = 0
+SAT: SET_REJECTED_TRXS = 0
+SAT: STATUS = -1
+SAT: LASTRUN = 2015-05-18-06.45.56.170572
+SAT: LASTSUCCESS = 2015-05-17-00.01.00.000000
+SAT: SYNCHPOINT is null
+SAT: SYNCHTIME is 2015-05-11-15.52.48.160717
+SAT: SOURCE_ALIAS is CAREPRD
+SAT: SOURCE_SERVER is CAREUTF8
+SAT: SOURCE_OWNER is CCAUDIT
+SAT: SOURCE_TABLE is VENDOR_INVOICE
+SAT: TARGET_ALIAS is CAREUTF8
+SAT: TARGET_SERVER is CAREUTF8
+SAT: TARGET_OWNER is CCAUDIT
+SAT: TARGET_TABLE is VENDOR_INVOICE
+SAT: SQLSTATE is null
+SAT: SQLERRM is null
+SAT: SQLCODE is null
+SAT: SQLERRP is null
+SAT: APPERRM is ASN1065E  APPLY "EBCC30" : "WorkerThread".  The Apply program cannot process data for the subscription set  "AUDVE
+NDORINVOICE" because one or more of the registrations for the source table are stopped.
+
+2. 一直在apply这边找IBMSNAP_REGISTER的STATE=‘S’都没找到，原来在capture那边，显示如下：
+
+dpcct1cp@nbaxb195:/home/dpcct1cp/torun#4) as source_table, state, disable_refresh,STATE_INFO from asn.ibmsnap_register where source_table='VENDOR_INVOICE' with ur"                               <
+
+SOURCE_OWNER     SOURCE_TABLE             STATE DISABLE_REFRESH STATE_INFO
+---------------- ------------------------ ----- --------------- ----------
+CCAUDIT          VENDOR_INVOICE           S                   0 ASN0071E 
+
+3. 然后去capture的log里面找ASN0071E，找到下面的记录
+
+2015-05-17-11.30.03.358406 <registration::initDecodeInfo> ASN0071E  CAPTURE "ASN" : "WorkerThread". The data type attribute of the column "BILL_ADDR1" in the CD table "CCAUDIT"."CDVENDOR_INVOICE" is not compatible with the data type attribute of the corresponding source column.
+
+看起来是表的BILL_ADDR1栏数据类型不对，就去describe了CCAUDIT.VENDOR_INVOICE和CCAUDIT.CDVENDOR_INVOICE结果真是这两栏不一致导致的，肯定是开发DBA去修改了表结构，就告诉了app叫他门回去改。。。
+dpcct1cp@nbaxb195:/home/dpcct1cp/torun#db2 "describe table CCAUDIT.CDVENDOR_INVOICE"
+
+                                Data type                     Column
+Column name                     schema    Data type name      Length     Scale Nulls
+------------------------------- --------- ------------------- ---------- ----- ------
+BILL_ADDR1                      SYSIBM    CHARACTER                   35     0 Yes   
+
+dpcct1cp@nbaxb195:/home/dpcct1cp/torun#db2 describe table CCAUDIT.VENDOR_INVOICE
+
+                                Data type                     Column
+Column name                     schema    Data type name      Length     Scale Nulls
+------------------------------- --------- ------------------- ---------- ----- ------
+BILL_ADDR1                      SYSIBM    CHARACTER                  105     0 Yes
+
+ 
+
+===========================================================================
+
+后来开了个CR去修改表结构搞定问题
+
+1. stop cature/apply
+2. alter CD table to adjust the source table.
+    alter table CCAUDIT.cdvendor_invoice alter column BILL_ADDR1 set data type char(105);
+    reorg table ccaudit.cdvendor_invoice ;
+3. activate the source table.
+    alter table asn.ibmsnap_register set STATE='A' where SOURCE_OWNER='CCAUDIT' and SOURCE_TABLE='VENDOR_INVOICE'
+4. bring up capture and apply.
+5. review dprop status, full refresh table CCAUDIT.VENDOR_INVOICE if needed.
+
+
+
+#### 问题3
+
+
