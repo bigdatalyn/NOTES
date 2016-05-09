@@ -1,0 +1,507 @@
+
+恢复的四种方式：
+
+1.基于时间
+2.基于cancel
+3.基于change
+4.基于log sequence
+
+
+
+recover database until time ''
+
+select to_char(sysdata,'yyyy-mm-dd hh24:mi:ss') from dual;
+
+kill -i ora_process
+startup mount;
+
+
+
+
+需要设置时间格式：
+
+export NLS_LANG=american_
+export NLS_DATE_FORMAT='yyyy-mm-dd hh24:mi:ss'
+
+rman target /
+
+run {
+set until time='2016-01-10 13:12:10'
+restore database;
+recover database;
+alter database open restlogs;
+}
+
+
+
+alter database read only;打不开
+
+alter database open restlogs;
+然后备份：
+备份空间 show parameter recovery
+db_recovery_file_dest_size
+
+rman target /
+backup database;
+
+
+===================
+sqlplus / as sysdba
+alter user hr account unlock identified by hr;
+grant dba to hr;
+
+归档日志：
+fast_recovery_
+alter system switch logfile;
+
+select group$,sequence#,status from v$log;
+
+删除某一个归档日志的场景练习：
+
+不完全恢复：查看当前logfile使用的是哪个？ 当前sequence之前的删除可以实践
+
+
+select name from v$archive_log;
+
+restore database;
+
+rman target /
+
+restore database;
+
+想做一个完全恢复，不知道少了一个归档日志（没有办法做）
+
+sqlplus / as sysdba
+
+recover database;
+
+少了归档日志的报错
+
+recover database until cancel;
+
+alter database open restlogs;
+
+backup database;
+
+===================
+
+
+shutdown abort;
+startup mount;
+
+rman target /
+
+restore controlfile from 'xxxx' (autobackup);
+alter database mount;
+restore database;
+recover database;
+alter database open resetlogs;
+
+
+2) lost controlfile,online logfile and datafile still exist:
+
+shutdown  abort;
+startup nomount;
+restore controlfile from 'xxxx'
+alter database mount;
+recover database; or recover database using backup controlfile;
+alter database open resetlogs;
+
+3) re-recreate controlfile:
+
+=====================
+
+备份恢复概念：
+
+begin backup
+
+以后对数据库的操作能不能继续？
+
+对数据库的IO都hang住了，数据放到哪里? XXXXX 错
+
+
+=====================
+
+数据库在running
+cp ...dbf ././
+
+每个块都有版本号，块头和块尾 都有版本号
+块头有版本号：DML执行的话 块头+1 DML结束了块尾+1
+
+512byte -> 1k
+
+数据库是8k
+
+cp是按照文件系统的扇区copy的.
+块头和块尾的版本号不一致，导致block的split.
+
+解决办法：
+
+备份之前 
+alter database begin backup;
+alter tablespace xxx begein backup;
+
+1.checkpoint
+把要备份的表空间内存的脏数据库刷到表空间里
+
+2.发生checkpoint就有SCN号：9:00 记录到datafile header和保持不变
+（checkpoint每隔一段时间就被触发，触发后会修改datafile的scn号）
+
+3.log sequence也会记录在datafile并保持不变
+
+
+cp ...dbf ././
+
+
+alter database end backup;
+alter tablespace xxx end backup;
+
+tablespace 处于begin backup状态时候 
+做DML 修改了一个块，这个数据库会发生spilt现象，会把数据块所有的记录转成redo 
+
+这一块做restore/recover的时候会利用这一redo重现数据块（修复split）----
+
+begin backup ---- end backup 会产生较多的redo
+
+
+10:00
+1.datafile header SCN into SCN10:00
+2.datafile header log sequence 300
+
+
+=================================================
+数据库怎样一致？
+
+1.数据文件的头scn要一致
+发生checkpoint，就会触发dbwr去写脏数据库，修改scn号
+
+2.控制文件也记录scn号 （控制文件1，2，3），保持 一致
+
+
+控制文件
+select file#,checkpoint_change# from v$datafile;
+
+数据文件头
+select file#,checkpoint_change# from v$datafile_header;
+
+归档测试：
+archive log list;
+
+startup mount;
+alter database archivelog;
+alter database open;
+
+archive log list;
+
+select file#,checkpoint_change# from v$datafile;
+select file#,checkpoint_change# from v$datafile_header;
+
+alter tablespace users begin backup;
+
+select file#,checkpoint_change# from v$datafile;
+select file#,checkpoint_change# from v$datafile_header;
+
+其中有一个是比较大
+
+select file_name from dba_datafiles where file_id = 4;
+
+alter system checkpoint;
+
+select file#,checkpoint_change# from v$datafile_header;
+
+
+alter system checkpoint;
+
+
+select file#,checkpoint_change# from v$datafile_header;
+
+有一个是不变
+
+alter tablespace users end backup;
+
+结束之后全部统一。
+
+=================================================
+RMAN能否把数据文件备份在客户端？
+
+为什么备份在服务器端？
+
+
+=================================================
+
+手工备份：不推荐使用了
+
+归档日志比较大
+备份文件单位是以文件为单位  2G->100M的数据 空间的浪费
+=================================================
+rman的架构：
+
+可执行程序，放到客户端
+
+客户端的工具，需要建立到服务器端的session
+
+目标数据库：备份的目标库
+
+备份和恢复，需要通道，也就是一个session：目标数据库备份介质的目标地址
+
+Disk，磁带，
+
+Rman的repository 元信息库：rman什么时间做了什么备份，放在那里，什么类型的备份
+
+元信息一定放到目标库的控制文件里
+
+元信息越来越多，则有保留7天的 参数控制（删除后可以再次注册）
+
+rman 的catalog（元信息写入到控制文件里，后再写到rman的catalog里）
+
+1.rman本身的应用程序，命令的执行，并不是rman来执行，rman只是传话筒
+
+backup tablespace user;
+
+调用pl/sql recover.bsq -> dbms_backup_restore.XXXX
+dbms_backup_restore.backupDataFileCopy
+找对于的pl/sql代码，找到之后通过session传到服务器执行
+
+dbms_rcvcat/dbms_rcvman
+dbms_backup_restore
+
+硬编码：数据库没启动也能调用的包
+备份恢复的包
+
+服务器端的pl/sql
+
+rman 是以数据块为单位备份，数据块头记录 有信息，会备份
+
+rman备份不需要begin backup，会自己判断，与dbwr协调， 不用考虑block split的现象
+
+方法：
+
+whole：数据，控制，归档日志文件
+partial：部分
+
+Full：全量
+Incremental：增量
+
+Offline：
+Online：
+
+TSPITR：基于时间表空间传输
+
+实例恢复：实例掉电，下次重启，实例自动恢复
+介质恢复：物理文件丢失
+--完全恢复
+--不完全恢复
+
+A.CKPT：oracle 8之前：完全检查点 主要触发 最高优先级dbwr把脏数据刷到数据文件
+1.正常关机
+2.alter system checkpoint; 
+问题：每次刷新脏数据块，资源消耗大/IO峰值
+
+能够批量写，一次最好用满IO带块，但不要超过
+
+B.增量incremantal 检查点：
+3秒钟
+log switch
+
+ckpt queue
+
+RBA：redolog Block address
+
+
+show parameter fast_start_mttr_target
+show parameter checkpoint
+show parameter 
+
+c:介质恢复
+
+restore：把数据文件把备份拿出来 copy出来
+recover：日志应用的过程（包括归档日志和联机日志文件）
+
+datagurad：保护存储，数据文件丢了可以切换
+rac：保证host 单点故障
+
+MAA：最大可用性架构
+
+
+stream：数据比较慢，plsql，类似逻辑stanby
+
+logminer：挖掘日志
+
+=================================================
+
+归档模式：
+
+archive log list
+
+日志切换->lgwr->ARCn
+
+闪回：
+可以不设置，每次备份时候需要指定
+设置之后，默认备份路径
+
+shutdown immediate;(不能abort)
+startup mount;
+archive log list;
+alter database archivelog;
+alter database open;
+
+归档日志的路径
+
+
+
+
+retention policy：
+redundancy：个数
+
+大小、路径：
+fast
+1.时间不要太大
+2.归档日志文件的问题；
+
+=================================================
+OMF:文件的名称和路径不能指定
+
+backupset：备份集
+
+RMAN 数据文件中已用的数据块拼接在一起生成一个backup piece
+
+backup piece 是物理文件 2G
+ 
+backupset是逻辑概念 2G + 1G backup piece 生成 一个backupset
+
+rman target /
+
+show all;
+
+default：缺省
+
+打开优化（默认没打开） ： 特定场景 没什么大效果，消耗CPU
+忽略跳过曾经备份过的
+
+
+
+bacup database;
+backup tablespace user;
+backup datafile 3;
+
+list backupset of datafile 1;
+
+
+9i:
+backup as copy
+datafile '' 
+formate ''
+
+backup as copy
+archivelog like ''
+format '';
+
+
+备份时候scan下逻辑物理的坏块
+
+物理坏块（缺省是打开：关闭的话 physical corruption）
+backup nochecksum datafile 1;
+
+backup check logical datafile 1;
+
+run{
+set maxcorrupt=10;
+backup database;
+}
+
+发现10个以上包括10个坏块，终止备份
+
+backup validate database;(扫一遍有无坏块)
+
+duplex 复制 4 多个backup piece
+run{
+set backup copies=2;
+backup tablespace users;
+}
+
+reuse：
+
+加密备份：wallet
+
+set password 或者 钱包去加密
+
+
+
+CONFIGURE CONTROLFILE AUTOBACKUP FORMAT FOR DEVICE TYPE DISK TO '%F'; # default
+
+%F
+backup tablespace users;
+c-llllllll-YYYY-MM-DD-QQ
+
+放到fast_recovery_dir里%F无效 OMF管理全球唯一
+backup tablespace users;
+
+控制文件的自动备份：
+谁修改谁生成
+
+RMAN> backup tablespace users;
+
+Starting backup at 09-MAY-16
+using channel ORA_DISK_1
+channel ORA_DISK_1: starting full datafile backup set
+channel ORA_DISK_1: specifying datafile(s) in backup set
+input datafile file number=00004 name=/u01/app/oracle/oradata/OCM11G/disk1/users01.dbf
+channel ORA_DISK_1: starting piece 1 at 09-MAY-16
+channel ORA_DISK_1: finished piece 1 at 09-MAY-16
+piece handle=/u01/app/oracle/fast_recovery_area/OCM11G/OCM11G/backupset/2016_05_09/o1_mf_nnndf_TAG20160509T223049_cm17rsvd_.bkp tag=TAG20160509T223049 comment=NONE
+channel ORA_DISK_1: backup set complete, elapsed time: 00:00:01
+Finished backup at 09-MAY-16
+
+Starting Control File and SPFILE Autobackup at 09-MAY-16
+piece handle=/home/oracle/c-3508504084-20160509-01 comment=NONE
+Finished Control File and SPFILE Autobackup at 09-MAY-16
+
+RMAN> 
+
+
+/home/oracle/c-3508504084-20160509-01
+
+256？ 一天最多能备份256个？然后循环覆盖使用？
+
+=================================================
+
+
+
+最彻底的wholebackup
+backup database include current controlfile plus archivelog;
+
+9i开始 只要备份了system表空间，1号文件，都会去备份控制文件
+
+
+full backup 和 level 0的备份：
+内容是一样的，只是level 0打了个标记可以打增量备份
+
+增量备份：
+差异备份：
+
+
+Fast Incremental Backup
+
+change tracking file:上次备份以来哪些block修改过
+
+启动增量备份：
+差异
+backup incremental level=0 database;
+backup incremental level=1 database;
+backup incremental level=2 database;
+
+累计增量
+backup incremental level=0 cumulative database;
+backup incremental level=1 cumulative database;
+backup incremental level=2 cumulative database;
+
+
+enable/disable block change tracking的功能：
+alter database enable block change tracking using file '$ORACLE_BASE/oradata/OCM11G/disk1/rman_change_tracking.file';
+
+alter database disable block change tracking;
+
+查看：
+select * from v$block_change_tracking;
+
+=================================================
