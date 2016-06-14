@@ -1,0 +1,74 @@
+
+
+expect是基于tcl演变而来的,很多语法和tcl类似,基本的语法见如下示例:
+
+#!/usr/tcl/bin/expect -f
+
+#page_autofiler_cifs_mount.exp mount_name remote_host remote_name user_name password
+
+set mount_name [lindex $argv 0]
+set remote_host [lindex $argv 1]
+set remote_name [lindex $argv 2]
+set user_name [lindex $argv 3]
+set password [lindex $argv 4]
+
+spawn sh /usr/local/istor/cli/scripts/page_autofiler_cifs_mount.sh $mount_name $remote_host $remote_name $user_name
+#eval exp_spawn sh /usr/local/istor/cli/scripts/page_autofiler_cifs_mount.sh $mount_name $remote_host $remote_name $user_name
+
+expect {
+      "assword:" {
+            send "$password\r"
+            expect {
+                   "assword:" {
+                           exit 1
+                   }
+                   EOF {
+                   }
+           }
+     }
+    eof{
+     }
+}
+
+set ret [exp_wait]
+
+exit [lindex $ret 3]
+
+ 
+
+1.首行加/usr/tcl/bin/expect
+
+2.spawn后加上需要执行的shell命令
+
+3.只有spawn执行的结果才会被expect捕获到
+
+4.send将spawn需要的信息发送给spawn启动的进程.
+
+5.针对cifs mount,第一次需要输入密码,第二次由于系统已记忆上次输入的密码,则不会提示用户去输入,所以我们要用分支的情况去处理,否则会报send: spawn id exp6 not open错误.
+
+6.如果密码错误,系统后台会显示再次输入密码,这时可以再次捕获然后退出.
+
+7.spawn命令出现的交互如果expect匹配不上的话,程序会按timeout设置进行等待,如果第二次运行本例的情况,相当于spawn直接发出eof,程序会直接执行expect eof.
+
+8.expect eof是必须的,否则可能导致执行结果不正确.如下
+
+spawn passwd $user
+expect "New Password:"
+send "$passwd\r"
+expect "Re-enter new Password:"
+send "$passwd\r"
+expect EOF
+
+最后expect EOF是必须的,否则程序在真正执行完成前就已经退出.
+
+9.exp_wait等待shell运行结束.
+
+10.执行结果有4个字段,最后一个代表shell返回值.
+
+set pid [lindex $ret 0]
+
+set spawn_id [lindex $ret 1]
+
+set os_error [lindex $ret 2]
+
+set exit_status [lindex $ret 3]
