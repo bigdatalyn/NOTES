@@ -1,0 +1,114 @@
+2014/04/10 15:23:24 Minor iga_b19edrdb211 High space used (85%) for /db iga_fss_xuxm_DB2006_x_3 Y I
+spから以上のようなアラーを検出して、以下の手順を活用します。
+
+目的:ユーザーは頻繁的にtempテーブルスペースに訪問して、/dbの使用率を85％以上に達する時、ログ収集の手順です。
+①サーバーにログイン
+アラートによって、サーバーはb19edrdb211である。
+/db・テーブルスペースの使用率は85%以上に達する場合、ログ収集開始
+/db・テーブルスペースの使用率は90％以上に達する場合、MW_DB2にコール
+
+
+②/dbの使用率を確認
+date;df -g /db
+Thu Apr 10 19:11:54 JST 2014
+Filesystem    1024-blocks      Free %Used    Iused %Iused Mounted on
+/dev/db_dblv    471859200  44448024   91%    10047     1% /db
+
+使用率は91%になっている、以下の手順でログ収集
+
+下記コマンドは15分内でファイルサイズ変更のあるリストを抽出して、/db2work/temporary/fsfull.txt_`date +%Y%m%d%H%M`というファイルに導入。
+(`date +%Y%m%d%H%M`はこのコマンドに実行するタイミング)
+/opt/sudo/sudo find /db -mmin -15 -ls | sort -nr +1 > /db2work/temporary/fsfull.txt_`date +%Y%m%d%H%M`
+輸出はファイルに導入するため、何も出ていない
+/opt/sudo/sudo　ls -l  /db2work/temporary/fsfull.txt*
+xxxxx@b19edrdb211:/db2work/temporary#ls -l  /db2work/temporary/fsfull.txt*
+-rw-------    1 root     system        81485 Apr 10 18:26 /db2work/temporary/fsfull.txt_201404101826
+
+fsfull.txt_201404101826というファイルを見つけた
+fsfull.txt_201404101826ファイルの内容を確認する
+/opt/sudo/sudo cat /db2work/temporary/fsfull.txt_201404101826 | awk '{print $NF}'
+以下のような結果を出ている
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00083.TDA
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00090.TDA
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00089.TDA
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00088.TDA
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00087.TDA
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00074.TDA
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00079.TDA
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00053.TDA
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00060.TDA
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00058.TDA
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00045.TDA
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00085.TDA
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00047.TDA
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00062.TDA
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00092.TDA
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00059.TDA
+/db/d227tpm/tabspace/TPMSDB/temp4k/container/SQL00075.TDA
+
+
+/opt/sudo/sudo cat /db2work/temporary/fsfull.txt_201404101826 | awk '{print $NF}'　| wc -l 
+652
+652行の結果を出る。その中、ほとんどはd227tpm関連のファイルで。d227tpmのファイルの数を数える
+/opt/sudo/sudo cat /db2work/temporary/fsfull.txt_201404101826 | awk '{print $NF}' | grep d227tpm　| wc -l 
+602
+d227tpm関連のファイルで15分間データの変更がある
+d227tpmはインスタンス
+
+③ログ収集シェルを配布
+
+
+以下のシェルをサーバーに配布、$INSTを修正必要、
+/opt/sudo/sudo ls -l /db2work/temporary/monitorfsfull.ksh
+/opt/sudo/sudo ls -l /db2work/temporary/monitorfsfull_0.ksh
+ファイル存在しない場合、ファイルを作成
+/opt/sudo/sudo touch /db2work/temporary/monitorfsfull.ksh 
+/opt/sudo/sudo touch /db2work/temporary/monitorfsfull_0.ksh
+$INSTをd227tpmに変更して
+/opt/sudo/sudo vi /db2work/temporary/monitorfsfull.ksh
+iでinsertモードに入る、
+以下のsectionの内容をcopy
+
+
+#!/usr/bin/ksh 
+USAGE=`df -g /db | awk '{print $4}' | tail -1 | awk -F'%' '{print $1}'` 
+if [[ $USAGE > 75 ]]; then 
+        for INST in `$INST` ; do 
+                su - $INST -c "LANG=en_US;db2 terminate>/dev/null;db2 list db directory | grep -p Indirect |grep 'Database name'" |awk -F= '{print $2}' | while read DB_NAME ; do 
+                        if [[ -z $DB_NAME ]];then 
+                                continue 
+                        fi 
+                        su - $INST -c "/db2work/temporary/monitorfsfull_0.ksh $DB_NAME" 
+                done 
+        done 
+fi 
+
+
+
+ESCでinsertモードを退出
+:wqでファイルを保存
+
+/opt/sudo/sudo vi /db2work/temporary/monitorfsfull_0.ksh
+iでinsertモードに入る、
+以下sectionの内容をcopy
+
+
+#!/usr/bin/ksh 
+DB_NAME=$1 
+db2pd -db $DB_NAME -tcbstats | grep -iw TEMP > ${DB_NAME}_fs.temp_$(date +'%Y%m%d%H%M') 
+if [[ $? = 0 ]];then 
+   db2pd -db $DB_NAME -app -dyn > ${DB_NAME}_fs.db2pd_$(date +'%Y%m%d%H%M') 
+   db2 connect to $DB_NAME 
+   db2 list tablespaces show detail > ${DB_NAME}_fs.tablespace_$(date +'%Y%m%d%H%M') 
+fi 
+
+ESCでinsertモードを退出
+:wqでファイルを保存
+
+
+ファイルの確認
+/opt/sudo/sudo ls -l /db2work/temporary/monitorfsfull.ksh
+/opt/sudo/sudo ls -l /db2work/temporary/monitorfsfull_0.ksh
+
+ファイルを実行
+/opt/sudo/sudo /db2work/temporary/monitorfsfull.ksh
